@@ -48,7 +48,6 @@ $nipWali = isset($_SESSION['nip']) ? $_SESSION['nip'] : '';
 $kelasAkses = isset($_SESSION['kelas']) && is_array($_SESSION['kelas']) ? $_SESSION['kelas'] : array();
 $kelasTerpilih = trim(isset($_GET['kelas']) ? (string) $_GET['kelas'] : '');
 $tanggalTtdTersimpan = ttd_get_saved_date($nipWali);
-$tanggalTtdStorageError = ttd_last_error();
 $tanggalTtdForm = $tanggalTtdTersimpan !== '' ? $tanggalTtdTersimpan : date('Y-m-d');
 $tanggalTtdLabel = ttd_format_date_id($tanggalTtdForm);
 ?>
@@ -267,10 +266,8 @@ $tanggalTtdLabel = ttd_format_date_id($tanggalTtdForm);
             </div>
             <button type="submit" class="btn" id="saveDateButton">Simpan Tanggal</button>
         </form>
-        <p class="date-status <?= $tanggalTtdStorageError !== null ? 'error' : ($tanggalTtdTersimpan !== '' ? 'success' : '') ?>" id="dateStatus">
-            <?php if ($tanggalTtdStorageError !== null): ?>
-                Penyimpanan tanggal belum siap: <?= page_e($tanggalTtdStorageError) ?>
-            <?php elseif ($tanggalTtdTersimpan !== ''): ?>
+        <p class="date-status <?= $tanggalTtdTersimpan !== '' ? 'success' : '' ?>" id="dateStatus">
+            <?php if ($tanggalTtdTersimpan !== ''): ?>
                 Tanggal tersimpan: <?= page_e($tanggalTtdLabel) ?>.
             <?php else: ?>
                 Belum ada tanggal tersimpan. Tanggal hari ini digunakan sampai Anda menyimpan pilihan.

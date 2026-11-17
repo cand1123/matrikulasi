@@ -54,10 +54,6 @@ $nipWaliKelas = isset($_SESSION['nip']) && $_SESSION['nip'] !== ''
 $catatanWaliKelas = isset($data['catatan_wali_kelas']) ? (string) $data['catatan_wali_kelas'] : '';
 $waliAsuh  = $id['wali_asuh'] ?? $data['wali_asuh_nama'] ?? $asuh['nama'] ?? '-';
 $tanggalTtd = ttd_get_date_or_today(isset($_SESSION['nip']) ? $_SESSION['nip'] : '');
-if (ttd_last_error() !== null) {
-    http_response_code(503);
-    exit('Tanggal tanda tangan belum dapat dibaca dari penyimpanan. Periksa konfigurasi Private Vercel Blob.');
-}
 $titimangsa = 'Kota Singkawang, ' . ttd_format_date_id($tanggalTtd);
 
 $aspek = [

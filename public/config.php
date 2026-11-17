@@ -1,42 +1,24 @@
 <?php
 /**
- * Koneksi Google Apps Script.
- * GAS_API_KEY wajib berasal dari environment variable, jangan ditulis di repository.
+ * Konfigurasi koneksi Google Apps Script untuk Rapor Matrikulasi.
+ * API key harus sama dengan PHP_RAPOR_API_KEY pada file Code.gs.
  */
 
-function matrikulasi_env(string $name, ?string $default = null): ?string
-{
-    $value = getenv($name);
-    if ($value === false || trim((string) $value) === '') {
-        return $default;
-    }
-    return trim((string) $value);
-}
-
 if (!defined('GAS_URL')) {
-    define(
-        'GAS_URL',
-        matrikulasi_env(
-            'GAS_URL',
-            'https://script.google.com/macros/s/AKfycbx5Uqbz1PNu-2KkTP7YgCWD7hq-8-ks3z0Bn9QfzL0Xt49t9c4UWibYJ6NXQCRGLPyJ/exec'
-        )
-    );
+    define('GAS_URL', 'https://script.google.com/macros/s/AKfycbx5Uqbz1PNu-2KkTP7YgCWD7hq-8-ks3z0Bn9QfzL0Xt49t9c4UWibYJ6NXQCRGLPyJ/exec');
 }
 
 if (!defined('GAS_API_KEY')) {
-    define('GAS_API_KEY', matrikulasi_env('GAS_API_KEY', ''));
+    define('GAS_API_KEY', '1f70094816f9aba94170f469b521e36213835984e7361bd561a95f1c6180b80e');
 }
 
 function fetchGasData(array $params = array())
 {
-    if (GAS_API_KEY === '') {
-        return array('_error' => 'Konfigurasi GAS_API_KEY belum diatur pada environment server.');
-    }
-
     if (!function_exists('curl_init')) {
         return array('_error' => 'Ekstensi PHP cURL belum aktif pada server.');
     }
 
+    // Semua endpoint API laporan dilindungi dengan kunci server-ke-server.
     $params['api_key'] = GAS_API_KEY;
     $url = GAS_URL . '?' . http_build_query($params);
 
@@ -53,7 +35,7 @@ function fetchGasData(array $params = array())
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT => 30,
-        CURLOPT_USERAGENT => 'Matrikulasi-Rapor-PHP/3.0'
+        CURLOPT_USERAGENT => 'Matrikulasi-Rapor-PHP/2.0'
     ));
 
     $response = curl_exec($ch);

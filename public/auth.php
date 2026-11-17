@@ -1,61 +1,38 @@
 <?php
 /**
  * Autentikasi session Rapor Matrikulasi.
- * Production Vercel: session disimpan pada Upstash Redis.
- * Local development: PHP file-session bawaan bila Redis belum dikonfigurasi.
+ * Kompatibel PHP 7.2+.
  */
-
-$matrikulasiAppEnv = strtolower((string) (getenv('APP_ENV') ?: 'local'));
-$matrikulasiIsVercel = (getenv('VERCEL') === '1' || $matrikulasiAppEnv === 'production');
-$matrikulasiRedisUrl = trim((string) (getenv('UPSTASH_REDIS_REST_URL') ?: ''));
-$matrikulasiRedisToken = trim((string) (getenv('UPSTASH_REDIS_REST_TOKEN') ?: ''));
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_trans_sid', '0');
-    ini_set('session.gc_maxlifetime', '28800');
-    ini_set('session.cookie_httponly', '1');
-    ini_set('session.cookie_samesite', 'Lax');
 
-    $isHttps = $matrikulasiIsVercel
-        || (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
-        || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
-        || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
+    $isHttps = (
+        !empty($_SERVER['HTTPS']) &&
+        strtolower((string) $_SERVER['HTTPS']) !== 'off'
+    ) || (
+        isset($_SERVER['SERVER_PORT']) &&
+        (int) $_SERVER['SERVER_PORT'] === 443
+    );
 
     session_name('MATRIKULASI_RAPOR_SESSID');
 
-    session_set_cookie_params(array(
-        'lifetime' => 0,
-        'path' => '/',
-        'secure' => $isHttps,
-        'httponly' => true,
-        'samesite' => 'Lax'
-    ));
-
-    if ($matrikulasiRedisUrl !== '' && $matrikulasiRedisToken !== '') {
-        require_once __DIR__ . '/redis_session.php';
-
-        $GLOBALS['matrikulasiSessionHandler'] = new MatrikulasiUpstashSessionHandler(
-            $matrikulasiRedisUrl,
-            $matrikulasiRedisToken
-        );
-
-        if (!session_set_save_handler($GLOBALS['matrikulasiSessionHandler'], true)) {
-            http_response_code(503);
-            exit('Layanan session tidak dapat diinisialisasi. Periksa konfigurasi Redis.');
-        }
-    } elseif ($matrikulasiIsVercel) {
-        http_response_code(503);
-        header('Content-Type: text/plain; charset=utf-8');
-        exit('Konfigurasi session belum lengkap. Hubungkan Upstash Redis dan isi UPSTASH_REDIS_REST_URL serta UPSTASH_REDIS_REST_TOKEN di Vercel.');
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params(array(
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ));
+    } else {
+        // PHP 7.2: SameSite ditambahkan ke path cookie.
+        session_set_cookie_params(0, '/; SameSite=Lax', '', $isHttps, true);
     }
 
-    if (!@session_start()) {
-        http_response_code(503);
-        header('Content-Type: text/plain; charset=utf-8');
-        exit('Session tidak dapat dimulai. Periksa koneksi penyimpanan session.');
-    }
+    session_start();
 }
 
 function auth_csrf_token()
@@ -163,14 +140,27 @@ function auth_destroy_session()
 
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
-        setcookie(session_name(), '', array(
-            'expires' => time() - 42000,
-            'path' => isset($params['path']) ? $params['path'] : '/',
-            'domain' => isset($params['domain']) ? $params['domain'] : '',
-            'secure' => isset($params['secure']) ? $params['secure'] : false,
-            'httponly' => isset($params['httponly']) ? $params['httponly'] : true,
-            'samesite' => isset($params['samesite']) ? $params['samesite'] : 'Lax'
-        ));
+
+        if (PHP_VERSION_ID >= 70300) {
+            setcookie(session_name(), '', array(
+                'expires' => time() - 42000,
+                'path' => isset($params['path']) ? $params['path'] : '/',
+                'domain' => isset($params['domain']) ? $params['domain'] : '',
+                'secure' => isset($params['secure']) ? $params['secure'] : false,
+                'httponly' => isset($params['httponly']) ? $params['httponly'] : true,
+                'samesite' => isset($params['samesite']) ? $params['samesite'] : 'Lax'
+            ));
+        } else {
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                isset($params['path']) ? $params['path'] : '/',
+                isset($params['domain']) ? $params['domain'] : '',
+                isset($params['secure']) ? $params['secure'] : false,
+                isset($params['httponly']) ? $params['httponly'] : true
+            );
+        }
     }
 
     if (session_status() === PHP_SESSION_ACTIVE) {

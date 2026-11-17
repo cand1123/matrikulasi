@@ -1,13 +1,142 @@
-PAKET MATRIKULASI R9 — VERCEL + DOCKER + FRANKENPHP
+PEMBARUAN WEBSITE RAPOR MATRIKULASI — NIP WALI KELAS
+Build Apps Script acuan: MATRIKULASI-20261117-R4
+Kompatibilitas target: PHP 7.2+
 
-1. Ekstrak ZIP. Root folder harus berisi Dockerfile dan Caddyfile.
-2. Salin logo asli dari website Laragon ke public/logo/ (logo_kemsos.png dan sr-image.png).
-3. Buat Upstash Redis melalui Vercel Marketplace. Environment: UPSTASH_REDIS_REST_URL dan UPSTASH_REDIS_REST_TOKEN.
-4. Buat Vercel Blob dengan akses PRIVATE dan hubungkan ke project. Environment: BLOB_READ_WRITE_TOKEN.
-5. Tambahkan APP_ENV=production, GAS_URL, dan GAS_API_KEY di Vercel.
-6. GAS_API_KEY harus sama dengan PHP_RAPOR_API_KEY di Code.gs aktif. Salin nilainya sebelum menimpa config.php lama.
-7. Deploy dari Git atau Vercel CLI, bukan upload file PHP satu per satu.
-8. Jika project lama memakai Static preset: vercel link lalu vercel project update --framework container --yes.
-9. Deploy: vercel deploy --prod. Uji /healthz.php.
+ISI PAKET
+- auth.php                  Session login, pembatasan kelas, CSRF, timeout.
+- config.php                Koneksi ke Apps Script; API key server-ke-server.
+- validasi_wali_kelas.php   Login NIP + konfirmasi NIP.
+- index.php                 Daftar siswa yang dibatasi pada kelas akun.
+- rapor.php                 Detail rapor, catatan wali kelas, NIP tanda tangan.
+- logout.php                Logout POST + CSRF.
+- Code.gs                   Apps Script R4 dengan endpoint auth_wali_kelas dan API key.
+- PETUNJUK_PEMASANGAN.txt   Panduan deployment.
 
-Baca README_VERCEL.md untuk instruksi rinci, Docker lokal, migrasi tanggal TTD, dan pemeriksaan.
+PENTING: MEKANISME LOGIN
+Login mengikuti permintaan: dua kolom NIP dan konfirmasi NIP harus sama.
+Server PHP kemudian memeriksa NIP pada sheet verif kolom E dan hanya menerima
+baris yang memenuhi role Wali Kelas berdasarkan fungsi cocokRole_ pada Apps Script.
+Nama resmi dan daftar kelas diambil dari sheet verif. Daftar kelas disimpan pada
+session server dan dipakai untuk membatasi index.php serta rapor.php.
+
+Catatan keamanan: konfirmasi NIP memastikan dua input sama, tetapi bukan faktor
+rahasia tambahan. NIP yang diketahui orang lain tetap dapat dipakai untuk login.
+Untuk autentikasi yang kuat, tambahkan PIN/password atau OTP sebagai faktor rahasia.
+
+LANGKAH PEMASANGAN
+1. Cadangkan folder website dan Apps Script lama.
+2. Ekstrak ZIP ini. Salin file PHP ke folder website yang sama:
+   auth.php, config.php, validasi_wali_kelas.php, index.php, rapor.php, logout.php.
+3. Buka Code.gs pada Apps Script yang saat ini dipakai. Ganti isi project Apps Script
+   dengan isi Code.gs dari paket ini, atau terapkan perubahan yang dijelaskan di bawah.
+4. Pastikan konstanta SPREADSHEET_ID tetap mengarah ke spreadsheet yang benar.
+5. Simpan Apps Script, lalu Deploy > Manage deployments > Edit deployment > New version
+   dan deploy ulang sebagai Web App. Gunakan konfigurasi akses yang memang diperlukan
+   oleh server PHP. URL deployment harus tetap sama atau sesuaikan GAS_URL di config.php.
+6. API key sudah disamakan antara Code.gs dan config.php pada paket ini.
+   Jangan mengubah salah satunya tanpa mengubah pasangannya.
+7. Pastikan PHP cURL aktif dan ekstensi OpenSSL aktif. Verifikasi SSL tetap aktif.
+   Jika cURL di Laragon gagal memvalidasi sertifikat CA, pasang/atur file CA bundle
+   pada curl.cainfo di php.ini; jangan menonaktifkan SSL verification.
+8. Buka validasi_wali_kelas.php, masukkan NIP yang terdaftar pada verif kolom E
+   di baris dengan role Wali Kelas, lalu ulangi NIP pada kolom konfirmasi.
+9. Setelah login, index.php menampilkan nama resmi, NIP, dan kelas yang diampu.
+10. Uji satu siswa untuk setiap kelas. Buka rapor dan periksa NIP tanda tangan serta
+    Catatan Wali Kelas. Cetak ke PDF dan pastikan bagian catatan dan tanda tangan tampil.
+
+SUMBER DATA YANG DIPAKAI (SESUAI CODE.GS R4)
+- verif: nama resmi pada kolom C, label kelas/role pada kolom B, NIP pada kolom E.
+  Filter role menggunakan fungsi cocokRole_(row, "WALI_KELAS") dari Apps Script.
+- walas: nama siswa kolom E, kelas kolom G, catatan kolom J (J2:J1000).
+  Fungsi petaWalas_ dan getCatatanWaliKelasForRapor mencocokkan nama + kelas.
+- Sheet 101: identitas siswa pada kolom B-D; detail rapor mengembalikan nip_wali_kelas
+  dan catatan_wali_kelas.
+
+PERUBAHAN API APPS SCRIPT
+- doGet action=auth_wali_kelas&nip=... memvalidasi NIP terhadap verif.
+- action=list, action=detail, dan action=auth_wali_kelas kini memerlukan api_key.
+- config.php mengirim api_key otomatis pada setiap panggilan API.
+
+CATATAN KOMPATIBILITAS
+- Paket menghindari arrow function, str_contains(), dan sintaks PHP 8.
+- Halaman kelas.php tidak ada pada berkas website yang dilampirkan; alur login diarahkan
+  ke index.php yang merupakan halaman daftar rapor yang tersedia pada lampiran.
+- Folder logo/ yang digunakan oleh rapor.php harus tetap disalin dari website lama.
+
+
+PEMBARUAN KHUSUS LOGIN NIP (BUILD R5)
+- Login hanya menerima NIP valid yang ada di kolom E pada baris dengan penugasan "Wali Kelas ..." di kolom B.
+- Nama resmi diambil dari kolom C.
+- Kelas diambil dari teks kolom B setelah "Wali Kelas" (contoh: "Wali Kelas X-1" menjadi "X-1").
+- Kolom D tidak dipakai untuk menentukan penugasan wali kelas pada struktur data yang Anda kirim, karena pada baris wali kelas kolom D masih berisi "Guru". Penentu penugasan adalah label kolom B.
+- Baris dengan NIP kosong, "n/a", "Tidak Ditemukan", atau placeholder lain tidak dapat login.
+- PHP kini menampilkan pesan error API yang sebenarnya, termasuk jika API key tidak cocok.
+- Versi Apps Script yang harus terlihat di respons adalah MATRIKULASI-20261117-R5-NIP.
+
+PENTING UNTUK NIP 18 DIGIT
+- Format kolom E sebagai Plain text sebelum memasukkan NIP.
+- Jika NIP sebelumnya pernah dimasukkan sebagai angka dan digitnya berubah, format Plain text saja tidak mengembalikan digit asli. Hapus lalu ketik ulang NIP yang benar sebagai teks.
+- Pastikan PHP_RAPOR_API_KEY di Code.gs sama persis dengan GAS_API_KEY di config.php.
+- Setelah mengganti Code.gs, Deploy > Manage deployments > Edit > New version > Deploy.
+
+
+PENYESUAIAN URL DEPLOYMENT (BERDASARKAN URL YANG DIKIRIM)
+- config.php pada paket revisi ini sudah diarahkan ke:
+  https://script.google.com/macros/s/AKfycbx5Uqbz1PNu-2KkTP7YgCWD7hq-8-ks3z0Bn9QfzL0Xt49t9c4UWibYJ6NXQCRGLPyJ/exec
+- String AKfy... yang dikirim pengguna adalah deployment ID, bukan API key.
+- API key harus berupa nilai PHP_RAPOR_API_KEY pada Code.gs dan harus sama persis dengan GAS_API_KEY pada config.php.
+- Jika masih muncul "Akses API ditolak", buka Code.gs yang benar-benar sudah di-deploy, cari PHP_RAPOR_API_KEY, lalu bandingkan dengan GAS_API_KEY di config.php. Jangan memakai deployment ID sebagai API key.
+
+
+PERUBAHAN TAMPILAN NILAI RAPOR
+- Kotak/badge pada nilai mata pelajaran dihapus.
+- Nilai ditampilkan sebagai teks biasa dengan bobot tebal.
+- Border, latar, padding, dan radius pada .score-badge dihilangkan.
+- Bagian tabel dan layout rapor lainnya tetap dipertahankan.
+
+
+PEMBARUAN R6: TANGGAL TTD, DESAIN INDEX, SEARCH, DAN POP-UP RAPOR
+
+IDENTITAS KEPALA SEKOLAH
+- Nama: Amirudin, S.T., M.Pd.
+- NIP: 198104082010011015
+- Lokasi tanda tangan: Kota Singkawang.
+
+PENGATURAN TANGGAL TTD
+- Wali kelas mengatur tanggal melalui panel "Pengaturan Tanggal Tanda Tangan" pada index.php.
+- Tanggal disimpan per NIP dalam file storage/tanggal_ttd.json.
+- Tidak menggunakan database.
+- Jika belum pernah disimpan, tanggal hari ini (zona waktu Asia/Jakarta) digunakan sampai wali kelas menyimpan tanggal pilihannya.
+- Folder storage harus dapat ditulisi oleh PHP/Apache Laragon.
+- Folder storage dilindungi .htaccess agar JSON tidak dapat diunduh langsung.
+
+PENTING AGAR TANGGAL TIDAK HILANG SAAT UPDATE WEBSITE
+- Setelah tanggal pertama kali disimpan, file storage/tanggal_ttd.json akan dibuat otomatis.
+- Saat memasang pembaruan PHP berikutnya, JANGAN menghapus folder storage dan JANGAN menimpa/menghapus storage/tanggal_ttd.json.
+- ZIP pembaruan berikutnya sebaiknya tidak menyertakan file tanggal_ttd.json, agar data yang sudah tersimpan tetap berada di server.
+- Disarankan membuat backup folder storage secara berkala.
+
+INDEX.PHP
+- Tampilan daftar siswa diperbarui dengan layout responsif dan warna baru.
+- Pencarian langsung dapat digunakan untuk nama siswa, kelas, dan teks lain pada baris siswa.
+- Filter kelas yang lama tetap dipertahankan.
+
+POP-UP RAPOR
+- Tombol "Lihat / Cetak Rapor" membuka rapor dalam modal iframe di halaman index.php.
+- Tidak membuka tab browser baru.
+- Tombol cetak/simpan PDF di dalam halaman rapor tetap tersedia.
+
+FILE BARU
+- pengaturan_ttd.php
+- simpan_tanggal_ttd.php
+- storage/.htaccess
+- storage/index.html
+
+
+PEMBARUAN R8 - PENYEMPURNAAN VISUAL RAPOR
+- Mempertahankan struktur dan logika PHP rapor versi sebelumnya.
+- Penyegaran desain ke gaya dokumen resmi sekolah: kop, judul, identitas, tabel, catatan, tanda tangan, dan footer.
+- Palet warna burgundy gelap, putih, dan abu-abu netral.
+- Font tabel seragam: 9.4pt pada layar; 9pt pada cetak/PDF untuk seluruh th dan td.
+- Mempertahankan tampilan responsif, ukuran A4, tombol cetak, autentikasi, API, catatan wali kelas, NIP, dan tanggal TTD.
+- Untuk pembaruan satu file, ganti rapor.php saja. Untuk ZIP penuh, pertahankan folder storage/tanggal_ttd.json yang sudah ada di server.

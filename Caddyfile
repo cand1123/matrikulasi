@@ -9,9 +9,7 @@
         -Server
     }
 
-    # File konfigurasi dan helper PHP hanya boleh di-include oleh PHP,
-    # bukan dipanggil langsung melalui URL.
-    @privateFiles path /auth.php /config.php /pengaturan_ttd.php /redis_session.php /storage/* /.htaccess /.env /.env.* /reference/* /Code.gs
+    @privateFiles path /auth.php /config.php /pengaturan_ttd.php /redis_session.php /storage/* /.env /.env.* /Code.gs /PETUNJUK_PEMASANGAN.txt
     respond @privateFiles "Not Found" 404
 
     php_server

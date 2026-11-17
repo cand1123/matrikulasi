@@ -3,11 +3,5 @@
 .env
 .env.*
 !.env.example
-.DS_Store
-Thumbs.db
-vendor
 node_modules
-reference
-scripts
-README*
-PETUNJUK*
+vendor
